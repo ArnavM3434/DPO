@@ -16,7 +16,6 @@ set -euo pipefail
 PROJECT_DIR="/work/hdd/bfgp/arnavm7/DPO"
 CONDA_ENV="/work/hdd/bfgp/arnavm7/envs/eval"
 
-module purge
 module use /sw/user/modules/python
 module load python/miniforge3_pytorch/2.10.0
 
