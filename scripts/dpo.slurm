@@ -1,29 +1,38 @@
 #!/bin/bash
 #SBATCH --job-name=dpo-train
-#SBATCH --account=YOUR_ACCOUNT
-#SBATCH --partition=gpuA100x4
+#SBATCH --account=bfgp-dtai-gh
+#SBATCH --partition=ghx4
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1
-#SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
+#SBATCH --cpus-per-task=32
+#SBATCH --mem=256G
 #SBATCH --time=08:00:00
 #SBATCH --output=logs/dpo-%j.out
 #SBATCH --error=logs/dpo-%j.err
 
 set -euo pipefail
 
-module purge
-module load cuda
-# module load anaconda3
-# source activate dpo
+PROJECT_DIR="/work/hdd/bfgp/arnavm7/DPO"
+CONDA_ENV="/work/hdd/bfgp/arnavm7/envs/eval"
 
-export HF_HOME="${HF_HOME:-$SCRATCH/huggingface}"
+module purge
+module use /sw/user/modules/python
+module load python/miniforge3_pytorch/2.10.0
+
+source "$(conda info --base)/etc/profile.d/conda.sh"
+conda activate "${CONDA_ENV}"
+
+cd "${PROJECT_DIR}"
+
+pip install datasets peft trl --quiet
+
+export HF_HOME="${HF_HOME:-/work/hdd/bfgp/arnavm7/huggingface}"
 mkdir -p logs dpo_checkpoints
 
 python dpo_train.py \
-  --preference_dataset YOUR_USER/alpaca-gpt2-dpo-prefs-v1 \
-  --output_dir "$SCRATCH/dpo/dpo_checkpoints" \
+  --preference_path "${PROJECT_DIR}/data/preferences/train.jsonl" \
+  --output_dir "${PROJECT_DIR}/dpo_checkpoints" \
   --per_device_train_batch_size 2 \
   --gradient_accumulation_steps 8 \
   --num_train_epochs 1 \
