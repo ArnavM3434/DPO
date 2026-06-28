@@ -1,0 +1,9 @@
+torch
+transformers>=4.44.0
+datasets
+accelerate
+peft
+trl>=0.12.0
+huggingface_hub
+requests
+tqdm
