@@ -28,10 +28,11 @@ cd "${PROJECT_DIR}"
 pip install datasets peft --quiet
 
 export HF_HOME="${HF_HOME:-/work/hdd/bfgp/arnavm7/huggingface}"
+export PYTHONUNBUFFERED=1
 mkdir -p logs data/generated
 
 python generate_responses.py \
-  --max_examples 100 \
+  --max_examples 5000 \
   --batch_size 8 \
   --num_samples 4 \
   --output_dir "${PROJECT_DIR}/data/generated" \

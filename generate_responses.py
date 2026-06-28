@@ -48,8 +48,11 @@ def load_model_and_tokenizer(model_id: str, device: torch.device):
     return model, tokenizer
 
 
-def decode_new_tokens(tokenizer, output_ids: torch.Tensor, prompt_len: int) -> str:
-    new_tokens = output_ids[prompt_len:]
+def decode_new_tokens(tokenizer, output_ids: torch.Tensor, input_width: int) -> str:
+    # With left padding, prompts are right-aligned; new tokens start after the
+    # full padded input width — NOT after attention_mask.sum() (that count is
+    # wrong as a slice index when pads are on the left).
+    new_tokens = output_ids[input_width:]
     text = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
     if not text.startswith("Assistant:"):
         text = f"Assistant: {text}"
@@ -75,7 +78,7 @@ def generate_batch(
         max_length=512,
     ).to(device)
 
-    input_lengths = inputs["attention_mask"].sum(dim=1)
+    input_width = inputs["input_ids"].shape[1]
 
     outputs = model.generate(
         **inputs,
@@ -91,11 +94,10 @@ def generate_batch(
     batch_size = len(prompts)
     all_responses: list[list[str]] = []
     for i in range(batch_size):
-        prompt_len = input_lengths[i].item()
         sample_responses = []
         for j in range(num_samples):
             seq = outputs[i * num_samples + j]
-            sample_responses.append(decode_new_tokens(tokenizer, seq, prompt_len))
+            sample_responses.append(decode_new_tokens(tokenizer, seq, input_width))
         all_responses.append(sample_responses)
     return all_responses
 
