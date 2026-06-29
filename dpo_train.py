@@ -22,7 +22,12 @@ import torch
 from datasets import Dataset, load_dataset
 from trl import DPOConfig, DPOTrainer
 
-from utils import SFT_MODEL_ID, load_sft_model_for_training, load_tokenizer
+from utils import (
+    SFT_MODEL_ID,
+    align_dpo_completion,
+    load_sft_model_for_training,
+    load_tokenizer,
+)
 
 
 def parse_args():
@@ -36,10 +41,10 @@ def parse_args():
     parser.add_argument("--max_length", type=int, default=1024)
     parser.add_argument("--per_device_train_batch_size", type=int, default=2)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=8)
-    parser.add_argument("--learning_rate", type=float, default=5e-7)
+    parser.add_argument("--learning_rate", type=float, default=5e-6)
     parser.add_argument("--num_train_epochs", type=int, default=1)
-    parser.add_argument("--warmup_steps", type=int, default=100)
-    parser.add_argument("--save_steps", type=int, default=200)
+    parser.add_argument("--warmup_steps", type=int, default=10)
+    parser.add_argument("--save_steps", type=int, default=50)
     parser.add_argument("--logging_steps", type=int, default=50)
     parser.add_argument("--eval_split", type=float, default=0.05, help="Hold out fraction for eval")
     parser.add_argument("--report_to", type=str, default="wandb", choices=["wandb", "none"])
@@ -99,6 +104,25 @@ def main():
 
     print(f"Loading policy model: {args.model_id}")
     tokenizer = load_tokenizer(padding_side="right")
+
+    print("Aligning prompt/completion token boundaries...")
+    train_ds = train_ds.map(
+        lambda ex: {
+            "prompt": ex["prompt"],
+            "chosen": align_dpo_completion(tokenizer, ex["prompt"], ex["chosen"]),
+            "rejected": align_dpo_completion(tokenizer, ex["prompt"], ex["rejected"]),
+        },
+        desc="Aligning train preferences",
+    )
+    if eval_ds is not None:
+        eval_ds = eval_ds.map(
+            lambda ex: {
+                "prompt": ex["prompt"],
+                "chosen": align_dpo_completion(tokenizer, ex["prompt"], ex["chosen"]),
+                "rejected": align_dpo_completion(tokenizer, ex["prompt"], ex["rejected"]),
+            },
+            desc="Aligning eval preferences",
+        )
 
     policy, ref_model = load_sft_model_for_training(args.model_id, device)
 

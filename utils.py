@@ -27,6 +27,25 @@ def strip_assistant_prefix(text: str) -> str:
     return text
 
 
+def align_dpo_completion(tokenizer, prompt: str, completion: str) -> str:
+    """Align completion so tokenize(prompt) is a prefix of tokenize(prompt + completion)."""
+    if completion.startswith(prompt):
+        completion = completion[len(prompt) :]
+
+    prompt_ids = tokenizer(prompt, add_special_tokens=False)["input_ids"]
+    joint_ids = tokenizer(prompt + completion, add_special_tokens=False)["input_ids"]
+
+    if joint_ids[: len(prompt_ids)] == prompt_ids:
+        return completion
+
+    # BPE splits differently at the prompt/completion boundary — split via joint tokenization.
+    for prompt_len in range(len(joint_ids) + 1):
+        if tokenizer.decode(joint_ids[:prompt_len]) == prompt:
+            return tokenizer.decode(joint_ids[prompt_len:], skip_special_tokens=True)
+
+    return completion
+
+
 def load_tokenizer(padding_side: str = "right") -> AutoTokenizer:
     """Tokenizer lives on the base model; the adapter repo has no tokenizer files."""
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL_ID)
@@ -45,16 +64,31 @@ def load_sft_model(adapter_id: str, device: torch.device) -> AutoPeftModelForCau
 
 
 def load_sft_model_for_training(adapter_id: str, device: torch.device):
-    """Policy + frozen reference for DPO; both start from the same SFT adapter."""
-    policy = AutoPeftModelForCausalLM.from_pretrained(adapter_id, torch_dtype="auto")
+    """Policy (trainable SFT LoRA) + frozen reference copy for DPO."""
+    policy = AutoPeftModelForCausalLM.from_pretrained(
+        adapter_id,
+        torch_dtype="auto",
+        is_trainable=True,
+    )
     policy.to(device)
+    policy.train()
+    for name, param in policy.named_parameters():
+        if "lora_" in name:
+            param.requires_grad = True
+    policy.enable_input_require_grads()
 
     ref_base = AutoModelForCausalLM.from_pretrained(BASE_MODEL_ID, torch_dtype="auto")
-    ref_model = PeftModel.from_pretrained(ref_base, adapter_id)
+    ref_model = PeftModel.from_pretrained(ref_base, adapter_id, is_trainable=False)
     ref_model.to(device)
     ref_model.eval()
     for param in ref_model.parameters():
         param.requires_grad = False
+
+    trainable = sum(p.numel() for p in policy.parameters() if p.requires_grad)
+    total = sum(p.numel() for p in policy.parameters())
+    print(f"Policy trainable params: {trainable:,} / {total:,}")
+    if trainable == 0:
+        raise RuntimeError("No trainable LoRA parameters — DPO cannot learn.")
 
     return policy, ref_model
 

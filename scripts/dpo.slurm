@@ -42,7 +42,7 @@ python dpo_train.py \
   --per_device_train_batch_size 2 \
   --gradient_accumulation_steps 8 \
   --num_train_epochs 1 \
-  --learning_rate 5e-7 \
+  --learning_rate 5e-6 \
   --beta 0.1 \
   --report_to wandb \
   --run_name "${WANDB_RUN_NAME}"
