@@ -43,6 +43,8 @@ def parse_args():
     parser.add_argument("--save_steps", type=int, default=200)
     parser.add_argument("--logging_steps", type=int, default=50)
     parser.add_argument("--eval_split", type=float, default=0.05, help="Hold out fraction for eval")
+    parser.add_argument("--report_to", type=str, default="wandb", choices=["wandb", "none"])
+    parser.add_argument("--run_name", type=str, default=None, help="WandB run name")
     parser.add_argument("--seed", type=int, default=42)
     return parser.parse_args()
 
@@ -83,10 +85,18 @@ def main():
 
     print("Loading preference dataset...")
     prefs = load_preferences(args)
-    split = prefs.train_test_split(test_size=args.eval_split, seed=args.seed)
-    train_ds = split["train"]
-    eval_ds = split["test"]
-    print(f"Train: {len(train_ds)} | Eval: {len(eval_ds)}")
+    if args.eval_split > 0:
+        split = prefs.train_test_split(test_size=args.eval_split, seed=args.seed)
+        train_ds = split["train"]
+        eval_ds = split["test"]
+        eval_strategy = "steps"
+        eval_steps = args.save_steps
+    else:
+        train_ds = prefs
+        eval_ds = None
+        eval_strategy = "no"
+        eval_steps = None
+    print(f"Train: {len(train_ds)}" + (f" | Eval: {len(eval_ds)}" if eval_ds else ""))
 
     print(f"Loading policy model: {args.model_id}")
     tokenizer = load_tokenizer(padding_side="right")
@@ -107,12 +117,13 @@ def main():
         logging_steps=args.logging_steps,
         save_steps=args.save_steps,
         save_total_limit=2,
-        eval_strategy="steps",
-        eval_steps=args.save_steps,
+        eval_strategy=eval_strategy,
+        eval_steps=eval_steps,
         bf16=torch.cuda.is_available() and torch.cuda.is_bf16_supported(),
         fp16=torch.cuda.is_available() and not torch.cuda.is_bf16_supported(),
         remove_unused_columns=False,
-        report_to="none",
+        report_to=args.report_to,
+        run_name=args.run_name,
         seed=args.seed,
     )
 

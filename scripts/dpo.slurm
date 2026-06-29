@@ -24,10 +24,17 @@ conda activate "${CONDA_ENV}"
 
 cd "${PROJECT_DIR}"
 
-pip install datasets peft trl --quiet
+pip install datasets peft trl wandb --quiet
 
 export HF_HOME="${HF_HOME:-/work/hdd/bfgp/arnavm7/huggingface}"
-mkdir -p logs dpo_checkpoints
+export PYTHONUNBUFFERED=1
+export WANDB_PROJECT="${WANDB_PROJECT:-gpt2-dpo}"
+export WANDB_RUN_NAME="${WANDB_RUN_NAME:-dpo-$(date +%Y%m%d-%H%M%S)}"
+export WANDB_DIR="${PROJECT_DIR}/wandb"
+# If compute nodes can't reach wandb.ai, uncomment:
+# export WANDB_MODE=offline
+
+mkdir -p logs dpo_checkpoints wandb
 
 python dpo_train.py \
   --preference_path "${PROJECT_DIR}/data/preferences/train.jsonl" \
@@ -36,4 +43,6 @@ python dpo_train.py \
   --gradient_accumulation_steps 8 \
   --num_train_epochs 1 \
   --learning_rate 5e-7 \
-  --beta 0.1
+  --beta 0.1 \
+  --report_to wandb \
+  --run_name "${WANDB_RUN_NAME}"

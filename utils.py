@@ -1,7 +1,9 @@
 """Shared helpers for the Alpaca → generate → judge → DPO pipeline."""
 
+from pathlib import Path
+
 import torch
-from peft import AutoPeftModelForCausalLM
+from peft import AutoPeftModelForCausalLM, PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 SFT_MODEL_ID = "ArnavM3434/gpt2-alpaca-second-try"
@@ -55,3 +57,23 @@ def load_sft_model_for_training(adapter_id: str, device: torch.device):
         param.requires_grad = False
 
     return policy, ref_model
+
+
+def load_base_model(device: torch.device) -> AutoModelForCausalLM:
+    model = AutoModelForCausalLM.from_pretrained(BASE_MODEL_ID, torch_dtype="auto")
+    model.to(device)
+    model.eval()
+    return model
+
+
+def load_dpo_model(checkpoint_path: str, device: torch.device):
+    """Load a DPO checkpoint (adapter-only or full weights)."""
+    path = Path(checkpoint_path)
+    if (path / "adapter_config.json").exists():
+        base = AutoModelForCausalLM.from_pretrained(BASE_MODEL_ID, torch_dtype="auto")
+        model = PeftModel.from_pretrained(base, checkpoint_path)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(checkpoint_path, torch_dtype="auto")
+    model.to(device)
+    model.eval()
+    return model
