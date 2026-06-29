@@ -6,7 +6,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 SFT_MODEL_ID = "ArnavM3434/gpt2-alpaca-second-try"
 BASE_MODEL_ID = "gpt2"
-JUDGE_PROMPT_VERSION = "v1"
+JUDGE_PROMPT_VERSION = "v3-transformers-teacher"
 
 
 def format_prompt(instruction: str, input_text: str = "") -> str:
