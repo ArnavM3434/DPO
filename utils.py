@@ -50,7 +50,7 @@ def load_sft_model_for_training(adapter_id: str, device: torch.device):
     policy.to(device)
 
     ref_base = AutoModelForCausalLM.from_pretrained(BASE_MODEL_ID, torch_dtype="auto")
-    ref_model = AutoPeftModelForCausalLM.from_pretrained(ref_base, adapter_id)
+    ref_model = PeftModel.from_pretrained(ref_base, adapter_id)
     ref_model.to(device)
     ref_model.eval()
     for param in ref_model.parameters():
