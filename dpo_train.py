@@ -34,7 +34,6 @@ def parse_args():
     parser.add_argument("--output_dir", type=str, default="./dpo_checkpoints")
     parser.add_argument("--beta", type=float, default=0.1, help="DPO temperature")
     parser.add_argument("--max_length", type=int, default=1024)
-    parser.add_argument("--max_prompt_length", type=int, default=512)
     parser.add_argument("--per_device_train_batch_size", type=int, default=2)
     parser.add_argument("--gradient_accumulation_steps", type=int, default=8)
     parser.add_argument("--learning_rate", type=float, default=5e-7)
@@ -107,7 +106,6 @@ def main():
         output_dir=args.output_dir,
         beta=args.beta,
         max_length=args.max_length,
-        max_prompt_length=args.max_prompt_length,
         per_device_train_batch_size=args.per_device_train_batch_size,
         per_device_eval_batch_size=args.per_device_train_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
