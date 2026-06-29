@@ -60,6 +60,18 @@ def parse_args():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--batch_size", type=int, default=8)
     parser.add_argument("--max_new_tokens", type=int, default=512)
+    parser.add_argument(
+        "--no_repeat_ngram_size",
+        type=int,
+        default=3,
+        help="Block repeating n-grams during generation (matches sft.py)",
+    )
+    parser.add_argument(
+        "--repetition_penalty",
+        type=float,
+        default=1.1,
+        help="Penalize tokens that already appeared (1.0 = off)",
+    )
     parser.add_argument("--output_path", type=str, default="./data/eval/results.jsonl")
     parser.add_argument("--summary_path", type=str, default="./data/eval/summary.json")
     parser.add_argument(
@@ -127,6 +139,8 @@ def generate_batch(
     prompts: list[str],
     max_new_tokens: int,
     device: torch.device,
+    no_repeat_ngram_size: int,
+    repetition_penalty: float,
 ) -> list[str]:
     inputs = tokenizer(
         prompts,
@@ -137,13 +151,18 @@ def generate_batch(
     ).to(device)
     input_width = inputs["input_ids"].shape[1]
 
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=max_new_tokens,
-        do_sample=False,
-        pad_token_id=tokenizer.pad_token_id,
-        eos_token_id=tokenizer.eos_token_id,
-    )
+    gen_kwargs = {
+        "max_new_tokens": max_new_tokens,
+        "do_sample": False,
+        "pad_token_id": tokenizer.pad_token_id,
+        "eos_token_id": tokenizer.eos_token_id,
+    }
+    if no_repeat_ngram_size > 0:
+        gen_kwargs["no_repeat_ngram_size"] = no_repeat_ngram_size
+    if repetition_penalty != 1.0:
+        gen_kwargs["repetition_penalty"] = repetition_penalty
+
+    outputs = model.generate(**inputs, **gen_kwargs)
 
     return [decode_new_tokens(tokenizer, seq, input_width) for seq in outputs]
 
@@ -156,12 +175,24 @@ def generate_all_for_model(
     max_new_tokens: int,
     device: torch.device,
     desc: str,
+    no_repeat_ngram_size: int,
+    repetition_penalty: float,
 ) -> list[str]:
     responses: list[str] = []
     for start in tqdm(range(0, len(examples), batch_size), desc=desc, leave=False):
         batch = examples[start : start + batch_size]
         prompts = [ex["prompt"] for ex in batch]
-        responses.extend(generate_batch(model, tokenizer, prompts, max_new_tokens, device))
+        responses.extend(
+            generate_batch(
+                model,
+                tokenizer,
+                prompts,
+                max_new_tokens,
+                device,
+                no_repeat_ngram_size,
+                repetition_penalty,
+            )
+        )
     return responses
 
 
@@ -283,21 +314,45 @@ def main():
         print("Generating with pretrained GPT-2...")
         base_model = load_base_model(device)
         base_responses = generate_all_for_model(
-            base_model, tokenizer, pending, args.batch_size, args.max_new_tokens, device, "pretrained"
+            base_model,
+            tokenizer,
+            pending,
+            args.batch_size,
+            args.max_new_tokens,
+            device,
+            "pretrained",
+            args.no_repeat_ngram_size,
+            args.repetition_penalty,
         )
         free_model(base_model)
 
         print("Generating with SFT model...")
         sft_model = load_sft_model(args.sft_model_id, device)
         sft_responses = generate_all_for_model(
-            sft_model, tokenizer, pending, args.batch_size, args.max_new_tokens, device, "sft"
+            sft_model,
+            tokenizer,
+            pending,
+            args.batch_size,
+            args.max_new_tokens,
+            device,
+            "sft",
+            args.no_repeat_ngram_size,
+            args.repetition_penalty,
         )
         free_model(sft_model)
 
         print("Generating with DPO model...")
         dpo_model = load_dpo_model(args.dpo_model_path, device)
         dpo_responses = generate_all_for_model(
-            dpo_model, tokenizer, pending, args.batch_size, args.max_new_tokens, device, "dpo"
+            dpo_model,
+            tokenizer,
+            pending,
+            args.batch_size,
+            args.max_new_tokens,
+            device,
+            "dpo",
+            args.no_repeat_ngram_size,
+            args.repetition_penalty,
         )
         free_model(dpo_model)
 
