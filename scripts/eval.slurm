@@ -31,7 +31,7 @@ export PYTHONUNBUFFERED=1
 mkdir -p logs data/eval
 
 python eval_models.py \
-  --dpo_model_path "${PROJECT_DIR}/dpo_checkpoints" \
+  --dpo_model_path "${PROJECT_DIR}/dpo_checkpoints/checkpoint-115" \
   --output_path "${PROJECT_DIR}/data/eval/results.jsonl" \
   --summary_path "${PROJECT_DIR}/data/eval/summary.json" \
   --generated_path "${PROJECT_DIR}/data/generated/responses_train.jsonl" \

@@ -1,5 +1,6 @@
 """Shared helpers for the Alpaca → generate → judge → DPO pipeline."""
 
+import json
 from pathlib import Path
 
 import torch
@@ -100,14 +101,44 @@ def load_base_model(device: torch.device) -> AutoModelForCausalLM:
     return model
 
 
-def load_dpo_model(checkpoint_path: str, device: torch.device):
-    """Load a DPO checkpoint (adapter-only or full weights)."""
+def _is_valid_adapter_config(config_path: Path) -> bool:
+    if not config_path.is_file() or config_path.stat().st_size == 0:
+        return False
+    try:
+        json.loads(config_path.read_text())
+        return True
+    except json.JSONDecodeError:
+        return False
+
+
+def _resolve_adapter_path(checkpoint_path: str) -> str:
+    """Pick a local folder with a valid adapter_config.json, or pass through Hub ids."""
     path = Path(checkpoint_path)
-    if (path / "adapter_config.json").exists():
-        base = AutoModelForCausalLM.from_pretrained(BASE_MODEL_ID, torch_dtype="auto")
-        model = PeftModel.from_pretrained(base, checkpoint_path)
-    else:
-        model = AutoModelForCausalLM.from_pretrained(checkpoint_path, torch_dtype="auto")
+    if not path.is_dir():
+        return checkpoint_path
+
+    if _is_valid_adapter_config(path / "adapter_config.json"):
+        return checkpoint_path
+
+    checkpoints = sorted(
+        path.glob("checkpoint-*"),
+        key=lambda p: int(p.name.rsplit("-", 1)[-1]),
+    )
+    for ckpt in reversed(checkpoints):
+        if _is_valid_adapter_config(ckpt / "adapter_config.json"):
+            print(f"Using {ckpt} (invalid or missing adapter_config.json in {checkpoint_path})")
+            return str(ckpt)
+
+    raise ValueError(
+        f"No valid adapter_config.json under {checkpoint_path}. "
+        "Copy one from checkpoint-115/ or use --dpo_model_path ArnavM3434/gpt2-alpaca-dpo"
+    )
+
+
+def load_dpo_model(checkpoint_path: str, device: torch.device):
+    """Load a DPO LoRA adapter from a local path or Hub repo id."""
+    load_path = _resolve_adapter_path(checkpoint_path)
+    model = AutoPeftModelForCausalLM.from_pretrained(load_path, torch_dtype="auto")
     model.to(device)
     model.eval()
     return model
