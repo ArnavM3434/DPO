@@ -30,6 +30,18 @@ def parse_args():
     parser.add_argument("--max_new_tokens", type=int, default=512)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--top_p", type=float, default=0.95)
+    parser.add_argument(
+        "--no_repeat_ngram_size",
+        type=int,
+        default=3,
+        help="Block repeating n-grams during generation (matches sft.py)",
+    )
+    parser.add_argument(
+        "--repetition_penalty",
+        type=float,
+        default=1.1,
+        help="Penalize tokens that already appeared (1.0 = off)",
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output_dir", type=str, default="./data/generated")
     parser.add_argument("--push_to_hub", action="store_true")
@@ -69,6 +81,8 @@ def generate_batch(
     temperature: float,
     top_p: float,
     device: torch.device,
+    no_repeat_ngram_size: int,
+    repetition_penalty: float,
 ) -> list[list[str]]:
     inputs = tokenizer(
         prompts,
@@ -80,16 +94,21 @@ def generate_batch(
 
     input_width = inputs["input_ids"].shape[1]
 
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=max_new_tokens,
-        do_sample=True,
-        temperature=temperature,
-        top_p=top_p,
-        num_return_sequences=num_samples,
-        pad_token_id=tokenizer.pad_token_id,
-        eos_token_id=tokenizer.eos_token_id,
-    )
+    gen_kwargs = {
+        "max_new_tokens": max_new_tokens,
+        "do_sample": True,
+        "temperature": temperature,
+        "top_p": top_p,
+        "num_return_sequences": num_samples,
+        "pad_token_id": tokenizer.pad_token_id,
+        "eos_token_id": tokenizer.eos_token_id,
+    }
+    if no_repeat_ngram_size > 0:
+        gen_kwargs["no_repeat_ngram_size"] = no_repeat_ngram_size
+    if repetition_penalty != 1.0:
+        gen_kwargs["repetition_penalty"] = repetition_penalty
+
+    outputs = model.generate(**inputs, **gen_kwargs)
 
     batch_size = len(prompts)
     all_responses: list[list[str]] = []
@@ -145,6 +164,8 @@ def main():
         "max_new_tokens": args.max_new_tokens,
         "temperature": args.temperature,
         "top_p": args.top_p,
+        "no_repeat_ngram_size": args.no_repeat_ngram_size,
+        "repetition_penalty": args.repetition_penalty,
         "seed": args.seed,
     }
 
@@ -166,6 +187,8 @@ def main():
             args.temperature,
             args.top_p,
             device,
+            args.no_repeat_ngram_size,
+            args.repetition_penalty,
         )
 
         with output_path.open("a") as f:
