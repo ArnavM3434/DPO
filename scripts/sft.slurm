@@ -24,11 +24,16 @@ conda activate "${CONDA_ENV}"
 
 cd "${PROJECT_DIR}"
 
-pip install datasets peft --quiet
+pip install datasets peft wandb --quiet
 
 export HF_HOME="${HF_HOME:-/work/hdd/bfgp/arnavm7/huggingface}"
 export PYTHONUNBUFFERED=1
+export WANDB_PROJECT="${WANDB_PROJECT:-gpt2-sft}"
+export WANDB_RUN_NAME="${WANDB_RUN_NAME:-sft-try-again-$(date +%Y%m%d-%H%M%S)}"
+export WANDB_DIR="${PROJECT_DIR}/wandb"
+# If compute nodes can't reach wandb.ai, uncomment:
+# export WANDB_MODE=offline
 
-mkdir -p logs checkpoints
+mkdir -p logs checkpoints wandb
 
 python sft.py

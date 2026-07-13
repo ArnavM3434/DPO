@@ -1,4 +1,6 @@
 
+import os
+
 import torch
 from peft import LoraConfig, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
@@ -136,6 +138,8 @@ training_args = TrainingArguments(
     logging_steps = 50,
     save_strategy = "steps",
     save_total_limit = 2,
+    report_to = "wandb",
+    run_name = os.environ.get("WANDB_RUN_NAME"),
   )
 
 trainer = Trainer(
