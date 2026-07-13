@@ -39,7 +39,7 @@ checkpoint_is_stable() {
 upload_checkpoint() {
   local dir="$1"
   local name
-  name="$(basename "$dir")
+  name="$(basename "$dir")"
 
   log "Uploading ${dir} -> ${HF_REPO_ID}/${name}/"
   hf upload "$HF_REPO_ID" "$dir" "${name}/" \
