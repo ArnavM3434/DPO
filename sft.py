@@ -1,35 +1,14 @@
 
-import os
-import math
-import json
-from pathlib import Path
-from typing import Dict, Any
-import glob
-import shutil
-
 import torch
-from torch.utils.data import DataLoader
-from torch.optim import AdamW
-from torch.nn.utils import clip_grad_norm_
-
-from peft import LoraConfig, get_peft_model, PeftModel
-
-from torch.utils.tensorboard import SummaryWriter
-
-from transformers import get_linear_schedule_with_warmup
+from peft import LoraConfig, get_peft_model
+from transformers import AutoModelForCausalLM, AutoTokenizer, Trainer, TrainingArguments
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("Using device:", device)
 
-import os
-
-
 model_name = "gpt2"
 
-from transformers import AutoTokenizer, AutoModelForCausalLM
-
 model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto")
-
 model.to(device)
 
 tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -51,9 +30,8 @@ tokenizer.padding_side = 'right'
 #Alpaca Dataset
 
 from datasets import load_dataset
-dataset = load_dataset("tatsu-lab/alpaca")
 
-train_ds = dataset["train"]
+train_ds = load_dataset("tatsu-lab/alpaca")["train"]
 
 #Change to Standard Prompt Completion
 
@@ -108,11 +86,7 @@ def preprocess_function(example):
 
 train_ds = train_ds.map(preprocess_function, remove_columns=["instruction", "input", "output", "text"])
 
-#SFT Trainer
-
-from transformers import Trainer, TrainingArguments
-
-#Peft Config
+# Peft Config
 
 LORA_CONFIG = dict(
     r=32,
