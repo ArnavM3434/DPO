@@ -8,7 +8,7 @@
 #
 # Env overrides:
 #   CHECKPOINTS_DIR   default: $PROJECT_DIR/checkpoints
-#   HF_REPO_PREFIX    default: ArnavM3434/gpt2-alpaca-sft
+#   HF_REPO_ID        default: ArnavM3434/sft-try-again
 #   INTERVAL_SEC      default: 300  (scan every 5 min)
 #   STABLE_SEC        default: 120  (wait 2 min after last file change)
 
@@ -16,7 +16,7 @@ set -euo pipefail
 
 PROJECT_DIR="${PROJECT_DIR:-/work/hdd/bfgp/arnavm7/DPO}"
 CHECKPOINTS_DIR="${CHECKPOINTS_DIR:-${PROJECT_DIR}/checkpoints}"
-HF_REPO_PREFIX="${HF_REPO_PREFIX:-ArnavM3434/gpt2-alpaca-sft}"
+HF_REPO_ID="${HF_REPO_ID:-ArnavM3434/sft-try-again}"
 INTERVAL_SEC="${INTERVAL_SEC:-300}"
 STABLE_SEC="${STABLE_SEC:-120}"
 LOG_FILE="${LOG_FILE:-${PROJECT_DIR}/logs/checkpoint-sync.log}"
@@ -39,11 +39,10 @@ checkpoint_is_stable() {
 upload_checkpoint() {
   local dir="$1"
   local name
-  name="$(basename "$dir")"
-  local repo_id="${HF_REPO_PREFIX}-${name}"
+  name="$(basename "$dir")
 
-  log "Uploading ${dir} -> ${repo_id}"
-  hf upload "$repo_id" "$dir" . \
+  log "Uploading ${dir} -> ${HF_REPO_ID}/${name}/"
+  hf upload "$HF_REPO_ID" "$dir" "${name}/" \
     --exclude "optimizer.pt" \
     --exclude "scheduler.pt" \
     --exclude "rng_state.pth" \
@@ -91,7 +90,7 @@ fi
 
 log "Starting checkpoint sync"
 log "  dir:      ${CHECKPOINTS_DIR}"
-log "  repo:     ${HF_REPO_PREFIX}-checkpoint-N"
+log "  repo:     ${HF_REPO_ID}/checkpoint-N/"
 log "  interval: ${INTERVAL_SEC}s"
 log "  stable:   ${STABLE_SEC}s"
 
