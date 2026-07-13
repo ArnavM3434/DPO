@@ -38,16 +38,12 @@ train_ds = load_dataset("tatsu-lab/alpaca")["train"]
 #Change to Standard Prompt Completion
 
 def find_prompt_token_length(tokenizer, prompt: str, input_ids: list[int]) -> int:
-    """Find where the prompt ends inside a jointly tokenized sequence."""
+    """Length of prompt prefix in a jointly tokenized sequence."""
     prompt_ids = tokenizer.encode(prompt, add_special_tokens=False)
-    if len(input_ids) >= len(prompt_ids) and input_ids[: len(prompt_ids)] == prompt_ids:
-        return len(prompt_ids)
-
-    # Rare BPE boundary mismatch: standalone prompt tokens != joint prefix.
-    for i in range(len(input_ids) + 1):
-        if tokenizer.decode(input_ids[:i]) == prompt:
+    for i, prompt_id in enumerate(prompt_ids):
+        if i >= len(input_ids) or input_ids[i] != prompt_id:
             return i
-    return min(len(prompt_ids), len(input_ids))
+    return len(prompt_ids)
 
 
 def preprocess_function(example):
