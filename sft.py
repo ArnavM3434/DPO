@@ -142,7 +142,7 @@ trainer = Trainer(
     model = model,
     args = training_args,
     train_dataset = train_ds,
-    tokenizer=tokenizer
+    processing_class=tokenizer,
 )
 
 trainer.train()

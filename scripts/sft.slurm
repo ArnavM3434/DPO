@@ -5,8 +5,8 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --gpus-per-node=1
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=256G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=64G
 #SBATCH --time=06:00:00
 #SBATCH --output=logs/sft-%j.out
 #SBATCH --error=logs/sft-%j.err
